@@ -1,0 +1,148 @@
+# ============================================================
+# AI Research Agent Team — Main Configuration
+# All values here can be overridden by environment variables
+# ============================================================
+
+# ------------------------------------------------------------
+# Report Settings
+# ------------------------------------------------------------
+report:
+  language: "zh-TW"              # zh-TW | en | ja
+  target_month: "auto"           # "auto" = previous month, or "2026-02"
+  output_formats:
+    - long_form                  # 2000-3000 word full report
+    - linkedin_post              # 600-900 words
+    - email_digest               # 400-500 words
+  chapter_structure:
+    - "模型發佈"
+    - "開源生態"
+    - "技術突破"
+    - "硬體與基礎設施"
+    - "AI Agent 架構演進"
+    - "競爭格局分析"
+
+# ------------------------------------------------------------
+# Intelligence Collection
+# ------------------------------------------------------------
+intel:
+  streams:
+    A_academic:
+      enabled: true
+      sources:
+        - arxiv.org
+        - semanticscholar.org
+        - paperswithcode.com
+      queries_per_run: 5
+      min_composite_score: 18     # Out of 30
+    B_labs:
+      enabled: true
+      sources:
+        - openai.com/blog
+        - anthropic.com/news
+        - deepmind.google/discover/blog
+        - meta.ai
+        - mistral.ai/news
+      queries_per_run: 5
+      min_composite_score: 20
+    C_opensource:
+      enabled: true
+      sources:
+        - huggingface.co/blog
+        - github.com/trending
+        - paperswithcode.com
+      queries_per_run: 4
+      min_composite_score: 18
+    D_hardware:
+      enabled: true
+      sources:
+        - nvidia.com/newsroom
+        - amd.com/news
+        - semianalysis.com
+      queries_per_run: 4
+      min_composite_score: 17
+    E_breakthroughs:
+      enabled: true
+      sources:
+        - nature.com
+        - science.org
+        - news.mit.edu
+      queries_per_run: 4
+      min_composite_score: 18
+    F_industry:
+      enabled: true
+      sources:
+        - crunchbase.com
+        - reuters.com
+        - techcrunch.com
+        - venturebeat.com
+      queries_per_run: 4
+      min_composite_score: 17
+
+# ------------------------------------------------------------
+# Quality Gate
+# ------------------------------------------------------------
+quality:
+  min_score: 85                  # 0-100; reports below this score are revised
+  max_revisions: 2               # After this many cycles, force-approve with warning
+  spot_check_searches: 5         # Max web searches QA can run for fact-checking
+  layer_weights:
+    factual_accuracy: 40
+    structural_completeness: 30
+    editorial_quality: 30
+
+# ------------------------------------------------------------
+# Delivery
+# ------------------------------------------------------------
+delivery:
+  email:
+    enabled: true
+    recipient: ""                # Set via REPORT_EMAIL_RECIPIENT env var
+    subject_variant: "A"        # A or B
+    attach_full_report: false
+    format: "html"              # html | plain
+
+  file_storage:
+    enabled: true
+    output_dir: "./reports/"
+    filename_pattern: "AI_Tech_Report_{YYYY}_{MM}.md"
+    save_all_formats: true      # Save linkedin + email variants too
+
+  webhook:
+    enabled: false
+    url: ""                     # Set via DELIVERY_WEBHOOK_URL env var
+
+  slack:
+    enabled: false
+    channel: "#ai-research"
+
+  notion:
+    enabled: false
+    database_id: ""             # Set via NOTION_DATABASE_ID env var
+
+# ------------------------------------------------------------
+# LLM Settings
+# ------------------------------------------------------------
+llm:
+  provider: "anthropic"         # openai | anthropic | google
+  temperature: 0.3              # Lower = more factual, less creative
+  max_tokens: 8192
+  timeout_seconds: 120
+  # Per-agent model overrides (optional)
+  agent_models:
+    intel_collector: null       # null = use default provider model
+    tech_analyst: null
+    market_analyst: null
+    content_synthesizer: null
+    quality_gate: null
+    delivery_agent: null
+
+# ------------------------------------------------------------
+# Pipeline Behavior
+# ------------------------------------------------------------
+pipeline:
+  parallel_analysis: true       # Run Tech + Market analysts in parallel
+  timeout_per_agent_minutes: 15
+  retry_on_stream_failure: true
+  stream_retry_threshold: 2     # Retry if stream yields fewer than N sources
+  save_intermediate_results: true
+  intermediate_dir: "./tmp/pipeline/"
