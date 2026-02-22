@@ -51,6 +51,11 @@ def team_b_init(state: EvolutionState) -> dict:
         report_content = Path(report_path).read_text(encoding="utf-8")
     else:
         report_path, report_content = _find_latest_report()
+        if not report_path:
+            raise RuntimeError(
+                "Team B requires at least one Team A report in the reports/ directory.\n"
+                "Run 'python run.py team-a' first, or provide --report PATH explicitly."
+            )
 
     # Load evolution graph
     evolution_graph = _load_evolution_graph()
@@ -166,6 +171,25 @@ def evolution_linker(state: EvolutionState) -> dict:
     }
 
 
+def _normalize_node(node: dict) -> dict:
+    """Normalize new nodes from LLM output to match existing evolution-graph.json schema.
+
+    Existing nodes use: year (int), domain (str), tier (str).
+    LLM may still output: introduced (str), type (str), generation (str).
+    """
+    n = dict(node)
+    if "year" not in n and "introduced" in n:
+        try:
+            n["year"] = int(str(n["introduced"])[:4])
+        except (ValueError, TypeError):
+            pass
+    if "domain" not in n and "type" in n:
+        n["domain"] = n["type"]
+    if "tier" not in n and "generation" in n:
+        n["tier"] = n["generation"]
+    return n
+
+
 # ── Node 3: Chronicle Writer (file I/O) ───────────────────────────────────────
 
 def chronicle_writer(state: EvolutionState) -> dict:
@@ -191,7 +215,7 @@ def chronicle_writer(state: EvolutionState) -> dict:
 
         for node in updates.get("graph_nodes_add", []):
             if node.get("id") and node["id"] not in existing_ids:
-                graph.setdefault("nodes", []).append(node)
+                graph.setdefault("nodes", []).append(_normalize_node(node))
                 existing_ids.add(node["id"])
 
         for patch in updates.get("graph_nodes_update", []):

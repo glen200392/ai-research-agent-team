@@ -135,7 +135,7 @@ jobs:
             echo "| Field | Value |"
             echo "|-------|-------|"
             echo "| Date | $(date -u '+%Y-%m-%d %H:%M UTC') |"
-            echo "| Month | ${{ inputs.month || 'auto (previous month)' }} |"
+            echo "| Month | ${{ inputs.month != '' && inputs.month || 'auto (previous month)' }} |"
             echo "| Teams run | ${{ inputs.teams || 'all' }} |"
             echo "| Trigger | ${{ github.event_name }} |"
             echo ""

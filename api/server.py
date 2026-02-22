@@ -23,9 +23,10 @@ API Endpoints:
 
 import asyncio
 import datetime
+import os
 import threading
 import uuid
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from pathlib import Path
 from typing import Optional
 
@@ -55,6 +56,7 @@ app.add_middleware(
 
 _BASE = Path(__file__).parent.parent
 _executor = ThreadPoolExecutor(max_workers=2)  # Limit concurrent pipeline runs
+JOB_TIMEOUT_SECONDS = int(os.getenv("JOB_TIMEOUT_SECONDS", "3600"))  # 1 hour default
 
 # ── In-memory job store ───────────────────────────────────────────────────────
 # { run_id: { status, team, started_at, completed_at, result, error } }
@@ -114,7 +116,20 @@ def _run_in_thread(run_id: str, team: str, fn, *args):
         finally:
             _jobs[run_id]["completed_at"] = datetime.datetime.utcnow().isoformat()
 
-    _executor.submit(_task)
+    future = _executor.submit(_task)
+
+    def _watchdog():
+        try:
+            future.result(timeout=JOB_TIMEOUT_SECONDS)
+        except FuturesTimeoutError:
+            if _jobs[run_id]["status"] == "running":
+                _jobs[run_id]["status"] = "timeout"
+                _jobs[run_id]["error"] = f"Job exceeded {JOB_TIMEOUT_SECONDS}s timeout"
+                _jobs[run_id]["completed_at"] = datetime.datetime.utcnow().isoformat()
+        except Exception:
+            pass  # Already handled in _task
+
+    threading.Thread(target=_watchdog, daemon=True).start()
     return {"run_id": run_id, "status": "running", "team": team}
 
 

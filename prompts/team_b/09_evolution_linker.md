@@ -53,9 +53,9 @@ Transform archaeology findings into:
 {
   "id": "slug-identifier",
   "name": "Display Name",
-  "type": "model | framework | technique | protocol | hardware",
-  "generation": "foundational | transitional | current | emerging",
-  "introduced": "YYYY-MM",
+  "year": 2024,
+  "domain": "architecture | framework | technique | protocol | hardware | pretraining | reasoning | agent | training | alignment | theory | product | infrastructure",
+  "tier": "foundational | breakthrough | revolutionary | significant | emerging",
   "origin_lab": "Organization",
   "origin_paper": "Title or arXiv ID or unknown",
   "parent_ids": ["id1", "id2"],
@@ -70,8 +70,8 @@ Transform archaeology findings into:
 {
   "from": "source_id",
   "to": "target_id",
-  "relationship": "evolved_into | enabled | inspired | parallel | scaled_into",
-  "evidence": "Brief justification (paper, announcement, or technical reasoning)"
+  "relation": "evolved_into | enabled | inspired | parallel | scaled_into",
+  "label": "Brief justification (paper, announcement, or technical reasoning)"
 }
 </graph_edge_schema>
 

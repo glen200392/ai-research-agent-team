@@ -50,6 +50,11 @@ def team_c_init(state: PedagogyState) -> dict:
         report_content = Path(report_path).read_text(encoding="utf-8")
     else:
         report_path, report_content = _find_latest_report()
+        if not report_path:
+            raise RuntimeError(
+                "Team C requires at least one Team A report in the reports/ directory.\n"
+                "Run 'python run.py team-a' first, or provide --report PATH explicitly."
+            )
 
     evolution_context = state.get("evolution_context", "") or _find_latest_period_chronicle()
 
