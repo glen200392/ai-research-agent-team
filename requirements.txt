@@ -39,6 +39,10 @@ aiosmtplib>=3.0.0                     # Async SMTP
 slack-sdk>=3.29.0                     # Slack delivery
 notion-client>=2.2.2                  # Notion delivery
 
+# ── REST API Server ──────────────────────────────────────────
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0             # ASGI server with auto-reload support
+
 # ── Observability ────────────────────────────────────────────
 langsmith>=0.1.0                      # LangGraph tracing
 

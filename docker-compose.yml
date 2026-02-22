@@ -2,35 +2,59 @@ version: "3.9"
 
 # ── AI Research Agent Team — Docker Compose ──────────────────────────────────
 #
+# Profiles:
+#   (none)   → app only, uses cloud API keys from .env
+#   local    → app + Ollama sidecar for local models
+#   api      → app + Ollama + REST API server (port 8080)
+#
 # Usage:
-#   Cloud providers:   docker compose up app
-#   With local Ollama: docker compose --profile local up
-#   Pull Ollama model: docker compose exec ollama ollama pull llama3.2
+#   Cloud only:         docker compose up app
+#   With local Ollama:  docker compose --profile local up
+#   Full API server:    docker compose --profile api up
+#   Pull Ollama model:  docker compose exec ollama ollama pull llama3.2
 # ─────────────────────────────────────────────────────────────────────────────
+
+x-common: &common
+  build: .
+  env_file:
+    - .env
+  environment:
+    OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+  volumes:
+    - ./reports:/app/reports
+    - ./docs:/app/docs
+    - ./pedagogy:/app/pedagogy
+    - ./tmp:/app/tmp
+  depends_on:
+    ollama:
+      condition: service_healthy
+      required: false
 
 services:
 
+  # ── CLI Pipeline Runner ────────────────────────────────────
   app:
-    build: .
-    env_file:
-      - .env
-    environment:
-      # When running with local Ollama, point to the sidecar container
-      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
-    volumes:
-      - ./reports:/app/reports
-      - ./docs:/app/docs
-      - ./pedagogy:/app/pedagogy
-      - ./tmp:/app/tmp
-    depends_on:
-      ollama:
-        condition: service_healthy
-        required: false  # Only required when --profile local is used
-    command: ["team-a"]
+    <<: *common
+    command: ["team-a"]    # Override with: docker compose run app team-b
 
+  # ── REST API Server ────────────────────────────────────────
+  api:
+    <<: *common
+    profiles: ["api"]
+    command: ["sh", "-c", "uvicorn api.server:app --host 0.0.0.0 --port 8080"]
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # ── Local Ollama Model Server ──────────────────────────────
   ollama:
     image: ollama/ollama:latest
-    profiles: ["local"]
+    profiles: ["local", "api"]
     ports:
       - "11434:11434"
     volumes:
@@ -41,7 +65,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
-    # Uncomment for GPU support:
+    # GPU support — uncomment if NVIDIA GPU is available:
     # deploy:
     #   resources:
     #     reservations:

@@ -201,13 +201,19 @@ def chronicle_writer(state: EvolutionState) -> dict:
                     break
 
         existing_edge_pairs = {
-            (e.get("from"), e.get("to"), e.get("relationship"))
+            # Existing graph uses "relation"; new edges from LLM may use "relationship"
+            (e.get("from"), e.get("to"), e.get("relationship") or e.get("relation"))
             for e in graph.get("edges", [])
         }
         for edge in updates.get("graph_edges_add", []):
-            key = (edge.get("from"), edge.get("to"), edge.get("relationship"))
+            # Normalise key name: accept both "relationship" and "relation" from LLM output
+            rel = edge.get("relationship") or edge.get("relation")
+            key = (edge.get("from"), edge.get("to"), rel)
             if key not in existing_edge_pairs:
-                graph.setdefault("edges", []).append(edge)
+                # Store with canonical key "relation" to match existing graph schema
+                normalised = {**edge, "relation": rel}
+                normalised.pop("relationship", None)
+                graph.setdefault("edges", []).append(normalised)
                 existing_edge_pairs.add(key)
 
         graph_path.write_text(json.dumps(graph, indent=2, ensure_ascii=False), encoding="utf-8")

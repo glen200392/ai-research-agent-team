@@ -1,0 +1,118 @@
+name: Monthly AI Research Report
+
+# ── Triggers ──────────────────────────────────────────────────────────────────
+on:
+  # Automatic: 2am UTC on the 1st of every month
+  schedule:
+    - cron: '0 2 1 * *'
+
+  # Manual trigger with optional month override
+  workflow_dispatch:
+    inputs:
+      month:
+        description: 'Target month (YYYY-MM or "auto" for previous month)'
+        default: 'auto'
+        required: false
+      teams:
+        description: 'Which teams to run'
+        default: 'all'
+        required: false
+        type: choice
+        options:
+          - all
+          - team-a
+          - team-b
+          - team-c
+
+# ── Jobs ──────────────────────────────────────────────────────────────────────
+jobs:
+  generate-report:
+    name: Generate AI Research Report
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Detect available providers
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+        run: python run.py detect
+
+      - name: Run Team A — Monthly Report
+        if: ${{ inputs.teams == 'all' || inputs.teams == 'team-a' || github.event_name == 'schedule' }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
+          DEFAULT_LLM_PROVIDER: ${{ secrets.DEFAULT_LLM_PROVIDER || 'auto' }}
+        run: python run.py team-a --month ${{ inputs.month || 'auto' }}
+
+      - name: Run Team B — Evolution Chronicle
+        if: ${{ inputs.teams == 'all' || inputs.teams == 'team-b' || github.event_name == 'schedule' }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          DEFAULT_LLM_PROVIDER: ${{ secrets.DEFAULT_LLM_PROVIDER || 'auto' }}
+        run: python run.py team-b
+
+      - name: Run Team C — Pedagogy Lesson
+        if: ${{ inputs.teams == 'all' || inputs.teams == 'team-c' || github.event_name == 'schedule' }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          DEFAULT_LLM_PROVIDER: ${{ secrets.DEFAULT_LLM_PROVIDER || 'auto' }}
+        run: python run.py team-c
+
+      - name: Commit generated outputs
+        run: |
+          git config user.name  "AI Research Bot"
+          git config user.email "bot@github-actions"
+          # Force-add outputs (reports/*.md is in .gitignore for local dev)
+          git add -f reports/ docs/evolution-chronicle/ pedagogy/
+          MONTH=$(date +%Y-%m)
+          git diff --staged --quiet || \
+            git commit -m "chore: automated AI research output ${MONTH} [skip ci]"
+          git push
+
+      - name: Upload reports as artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-research-outputs-${{ github.run_number }}
+          path: |
+            reports/*.md
+            docs/evolution-chronicle/by-period/*.md
+            pedagogy/weekly-lessons/*/complete-lesson.md
+          retention-days: 90
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Run Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Date:** $(date -u +%Y-%m-%d\ %H:%M\ UTC)" >> $GITHUB_STEP_SUMMARY
+          echo "**Month:** ${{ inputs.month || 'auto' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Generated Files" >> $GITHUB_STEP_SUMMARY
+          ls reports/*.md 2>/dev/null && echo "- Team A reports:" >> $GITHUB_STEP_SUMMARY && ls reports/*.md >> $GITHUB_STEP_SUMMARY || echo "- No Team A reports" >> $GITHUB_STEP_SUMMARY
+          ls pedagogy/weekly-lessons/*/complete-lesson.md 2>/dev/null && echo "- Team C lessons:" >> $GITHUB_STEP_SUMMARY || echo "- No Team C lessons" >> $GITHUB_STEP_SUMMARY
