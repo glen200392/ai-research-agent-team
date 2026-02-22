@@ -2,15 +2,15 @@ name: Monthly AI Research Report
 
 # ── Triggers ──────────────────────────────────────────────────────────────────
 on:
-  # Automatic: 2am UTC on the 1st of every month
+  # Automatic: 1st of every month at 2:00 AM UTC
   schedule:
     - cron: '0 2 1 * *'
 
-  # Manual trigger with optional month override
+  # Manual: choose month and which teams to run
   workflow_dispatch:
     inputs:
       month:
-        description: 'Target month (YYYY-MM or "auto" for previous month)'
+        description: 'Target month (YYYY-MM or "auto" = previous month)'
         default: 'auto'
         required: false
       teams:
@@ -24,17 +24,34 @@ on:
           - team-b
           - team-c
 
+# ── Global env — injected into every step ─────────────────────────────────────
+env:
+  ANTHROPIC_API_KEY:    ${{ secrets.ANTHROPIC_API_KEY }}
+  OPENAI_API_KEY:       ${{ secrets.OPENAI_API_KEY }}
+  GOOGLE_API_KEY:       ${{ secrets.GOOGLE_API_KEY }}
+  TAVILY_API_KEY:       ${{ secrets.TAVILY_API_KEY }}
+  SERPER_API_KEY:       ${{ secrets.SERPER_API_KEY }}
+  BRAVE_SEARCH_API_KEY: ${{ secrets.BRAVE_SEARCH_API_KEY }}
+  # Leave empty → system auto-detects from keys above
+  DEFAULT_LLM_PROVIDER: ${{ secrets.DEFAULT_LLM_PROVIDER }}
+
 # ── Jobs ──────────────────────────────────────────────────────────────────────
 jobs:
   generate-report:
     name: Generate AI Research Report
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
+
+    # ── Required for git commit + push back to repo ────────────────────────
+    permissions:
+      contents: write
 
     steps:
+      # ── Setup ─────────────────────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          fetch-depth: 0      # full history needed for git push
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python 3.11
@@ -43,58 +60,60 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: pip install -r requirements.txt
 
-      - name: Detect available providers
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+      - name: Detect available LLM providers
         run: python run.py detect
 
+      # ── Team A — Monthly Intelligence Report ──────────────────────────────
       - name: Run Team A — Monthly Report
-        if: ${{ inputs.teams == 'all' || inputs.teams == 'team-a' || github.event_name == 'schedule' }}
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
-          SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
-          DEFAULT_LLM_PROVIDER: ${{ secrets.DEFAULT_LLM_PROVIDER || 'auto' }}
-        run: python run.py team-a --month ${{ inputs.month || 'auto' }}
+        if: >-
+          inputs.teams == 'all' ||
+          inputs.teams == 'team-a' ||
+          github.event_name == 'schedule'
+        run: |
+          MONTH="${{ inputs.month }}"
+          python run.py team-a --month "${MONTH:-auto}"
 
+      # ── Team B — Evolution Chronicle ──────────────────────────────────────
       - name: Run Team B — Evolution Chronicle
-        if: ${{ inputs.teams == 'all' || inputs.teams == 'team-b' || github.event_name == 'schedule' }}
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-          DEFAULT_LLM_PROVIDER: ${{ secrets.DEFAULT_LLM_PROVIDER || 'auto' }}
+        if: >-
+          inputs.teams == 'all' ||
+          inputs.teams == 'team-b' ||
+          github.event_name == 'schedule'
         run: python run.py team-b
 
+      # ── Team C — Pedagogy Lesson ──────────────────────────────────────────
       - name: Run Team C — Pedagogy Lesson
-        if: ${{ inputs.teams == 'all' || inputs.teams == 'team-c' || github.event_name == 'schedule' }}
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-          DEFAULT_LLM_PROVIDER: ${{ secrets.DEFAULT_LLM_PROVIDER || 'auto' }}
+        if: >-
+          inputs.teams == 'all' ||
+          inputs.teams == 'team-c' ||
+          github.event_name == 'schedule'
         run: python run.py team-c
 
+      # ── Commit outputs back to repository ────────────────────────────────
       - name: Commit generated outputs
         run: |
           git config user.name  "AI Research Bot"
-          git config user.email "bot@github-actions"
-          # Force-add outputs (reports/*.md is in .gitignore for local dev)
-          git add -f reports/ docs/evolution-chronicle/ pedagogy/
-          MONTH=$(date +%Y-%m)
-          git diff --staged --quiet || \
-            git commit -m "chore: automated AI research output ${MONTH} [skip ci]"
-          git push
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Upload reports as artifacts
+          # Force-add output dirs (reports/*.md is .gitignored for local dev)
+          git add -f \
+            reports/ \
+            docs/evolution-chronicle/ \
+            pedagogy/
+
+          MONTH=$(date +%Y-%m)
+          if git diff --staged --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "chore: automated AI research output ${MONTH} [skip ci]"
+            git push
+          fi
+
+      # ── Save as downloadable artifacts ───────────────────────────────────
+      - name: Upload outputs as artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -104,15 +123,26 @@ jobs:
             docs/evolution-chronicle/by-period/*.md
             pedagogy/weekly-lessons/*/complete-lesson.md
           retention-days: 90
+          if-no-files-found: warn
 
-      - name: Summary
+      # ── Job summary ───────────────────────────────────────────────────────
+      - name: Write job summary
         if: always()
         run: |
-          echo "## Run Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Date:** $(date -u +%Y-%m-%d\ %H:%M\ UTC)" >> $GITHUB_STEP_SUMMARY
-          echo "**Month:** ${{ inputs.month || 'auto' }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Generated Files" >> $GITHUB_STEP_SUMMARY
-          ls reports/*.md 2>/dev/null && echo "- Team A reports:" >> $GITHUB_STEP_SUMMARY && ls reports/*.md >> $GITHUB_STEP_SUMMARY || echo "- No Team A reports" >> $GITHUB_STEP_SUMMARY
-          ls pedagogy/weekly-lessons/*/complete-lesson.md 2>/dev/null && echo "- Team C lessons:" >> $GITHUB_STEP_SUMMARY || echo "- No Team C lessons" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## AI Research Agent Team — Run Summary"
+            echo ""
+            echo "| Field | Value |"
+            echo "|-------|-------|"
+            echo "| Date | $(date -u '+%Y-%m-%d %H:%M UTC') |"
+            echo "| Month | ${{ inputs.month || 'auto (previous month)' }} |"
+            echo "| Teams run | ${{ inputs.teams || 'all' }} |"
+            echo "| Trigger | ${{ github.event_name }} |"
+            echo ""
+            echo "### Generated Files"
+            echo "\`\`\`"
+            ls -lh reports/*.md 2>/dev/null         || echo "  (no Team A reports)"
+            ls -lh docs/evolution-chronicle/by-period/*.md 2>/dev/null || echo "  (no Team B period entries)"
+            ls -lh pedagogy/weekly-lessons/*/complete-lesson.md 2>/dev/null || echo "  (no Team C lessons)"
+            echo "\`\`\`"
+          } >> "$GITHUB_STEP_SUMMARY"

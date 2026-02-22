@@ -1,0 +1,72 @@
+name: Deploy API to Fly.io
+
+# ── Triggers ──────────────────────────────────────────────────────────────────
+# Runs automatically when code affecting the API or its dependencies changes.
+# Also runnable manually for forced re-deployment.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'api/**'
+      - 'core/**'
+      - 'frameworks/**'
+      - 'config/**'
+      - 'Dockerfile'
+      - 'docker-entrypoint.sh'
+      - 'requirements.txt'
+      - 'fly.toml'
+  workflow_dispatch:
+
+# ── Prerequisites ──────────────────────────────────────────────────────────────
+# 1. Install flyctl:       curl -L https://fly.io/install.sh | sh
+# 2. Sign in:              fly auth login
+# 3. Create app:           fly apps create ai-research-agent-team
+# 4. Set LLM secrets:      fly secrets set ANTHROPIC_API_KEY=sk-ant-... \
+#                                          TAVILY_API_KEY=tvly-...
+# 5. Add GH secret:        Settings → Secrets → FLY_API_TOKEN  (from: fly tokens create deploy)
+# ─────────────────────────────────────────────────────────────────────────────
+
+jobs:
+  deploy:
+    name: Deploy to Fly.io
+    runs-on: ubuntu-latest
+
+    # Prevent overlapping deploys if commits come in rapid succession
+    concurrency:
+      group: deploy-fly
+      cancel-in-progress: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to Fly.io
+        run: flyctl deploy --remote-only --wait-timeout 120
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Write deployment summary
+        if: success()
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          APP_URL=$(flyctl info --json 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('Hostname',''))" 2>/dev/null || echo "")
+          {
+            echo "## Deployed to Fly.io"
+            echo ""
+            echo "| Field | Value |"
+            echo "|-------|-------|"
+            echo "| App | \`ai-research-agent-team\` |"
+            echo "| Commit | \`${{ github.sha }}\` |"
+            echo "| Deployed at | $(date -u '+%Y-%m-%d %H:%M UTC') |"
+            if [ -n "$APP_URL" ]; then
+              echo "| URL | https://${APP_URL} |"
+              echo ""
+              echo "### API Endpoints"
+              echo "- Health: \`https://${APP_URL}/health\`"
+              echo "- Docs:   \`https://${APP_URL}/docs\`"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,22 +1,32 @@
 FROM python:3.11-slim
 
-# System deps for playwright and other tools
+# System utilities
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Install Python deps first (better layer caching)
+# Install Python dependencies first (better layer caching)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy project
+# Copy project source
 COPY . .
 
-# Create output directories
-RUN mkdir -p reports tmp/pipeline pedagogy/weekly-lessons
+# Create runtime output directories
+RUN mkdir -p reports tmp/pipeline pedagogy/weekly-lessons \
+             docs/evolution-chronicle/by-period \
+             docs/evolution-chronicle/by-technology
 
-# Default: show help
-ENTRYPOINT ["python", "run.py"]
+# Install and configure the dual-mode entrypoint
+COPY docker-entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# API server port (used when START_MODE=api)
+EXPOSE 8080
+
+# Default: CLI mode — run `python run.py <args>`
+# Override with START_MODE=api for the FastAPI server
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["--help"]

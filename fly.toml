@@ -1,0 +1,60 @@
+# ── Fly.io Application Configuration ─────────────────────────────────────────
+# Docs: https://fly.io/docs/reference/configuration/
+#
+# First-time setup:
+#   curl -L https://fly.io/install.sh | sh
+#   fly auth login
+#   fly apps create ai-research-agent-team
+#   fly secrets set \
+#     ANTHROPIC_API_KEY="sk-ant-..." \
+#     TAVILY_API_KEY="tvly-..." \
+#     DEFAULT_LLM_PROVIDER="anthropic"
+#   fly deploy
+# ─────────────────────────────────────────────────────────────────────────────
+
+app            = "ai-research-agent-team"
+primary_region = "nrt"    # Tokyo — closest region to Taiwan
+
+[build]
+  dockerfile = "Dockerfile"
+
+# ── Environment variables (non-secret) ───────────────────────────────────────
+[env]
+  START_MODE = "api"        # Activates the FastAPI server in docker-entrypoint.sh
+  PORT       = "8080"
+
+# ── HTTP service ──────────────────────────────────────────────────────────────
+[http_service]
+  internal_port       = 8080
+  force_https         = true
+  auto_stop_machines  = "stop"   # Scale to zero when idle (saves cost)
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type       = "connections"
+    hard_limit = 25
+    soft_limit = 20
+
+# ── Health check ──────────────────────────────────────────────────────────────
+[[http_service.checks]]
+  grace_period  = "15s"
+  interval      = "30s"
+  method        = "GET"
+  path          = "/health"
+  protocol      = "http"
+  timeout       = "10s"
+
+# ── VM resources (free tier) ──────────────────────────────────────────────────
+[[vm]]
+  memory   = "512mb"
+  cpu_kind = "shared"
+  cpus     = 1
+
+# ── Persistent volumes for outputs ───────────────────────────────────────────
+# Uncomment to persist reports/lessons across deploys.
+# First run: fly volumes create ai_research_data --size 1 --region nrt
+#
+# [[mounts]]
+#   source      = "ai_research_data"
+#   destination = "/app/reports"
