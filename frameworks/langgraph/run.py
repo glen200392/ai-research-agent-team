@@ -36,6 +36,15 @@ def main():
         border_style="cyan"
     ))
 
+    # Validate --month format before loading anything else
+    import re as _re
+    if args.month != "auto" and not _re.fullmatch(r"\d{4}-\d{2}", args.month):
+        console.print(
+            f"[red]Error: Invalid --month value '{args.month}'. "
+            "Use 'YYYY-MM' (e.g. '2026-02') or 'auto'.[/red]"
+        )
+        sys.exit(1)
+
     # Load config
     config = load_config(args.config)
     if args.month != "auto":

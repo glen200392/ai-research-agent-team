@@ -95,7 +95,7 @@ quality:
 # ------------------------------------------------------------
 delivery:
   email:
-    enabled: true
+    enabled: false               # Set to true only after configuring REPORT_EMAIL_RECIPIENT
     recipient: ""                # Set via REPORT_EMAIL_RECIPIENT env var
     subject_variant: "A"        # A or B
     attach_full_report: false
