@@ -123,18 +123,59 @@ delivery:
 # LLM Settings
 # ------------------------------------------------------------
 llm:
-  provider: "anthropic"         # openai | anthropic | google
+  # Provider: anthropic | openai | google | ollama | lmstudio | openai_compatible | auto
+  # "auto" = detect from env vars in priority order (Anthropic → OpenAI → Google → Ollama → LM Studio)
+  provider: "auto"
   temperature: 0.3              # Lower = more factual, less creative
   max_tokens: 8192
   timeout_seconds: 120
+
   # Per-agent model overrides (optional)
+  # Set provider + model per agent, or leave null to inherit global settings.
+  # Example: use cheap local model for search, best cloud model for writing.
   agent_models:
-    intel_collector: null       # null = use default provider model
+    intel_collector: null       # e.g. {provider: ollama, model: llama3.2}
     tech_analyst: null
     market_analyst: null
-    content_synthesizer: null
+    content_synthesizer: null   # e.g. {provider: anthropic, model: claude-opus-4-6}
     quality_gate: null
     delivery_agent: null
+    archaeology_agent: null     # Team B
+    evolution_linker: null      # Team B
+    lesson_designer: null       # Team C
+    quiz_generator: null        # Team C
+
+# ------------------------------------------------------------
+# Local Model Settings
+# (all values overridable via environment variables)
+# ------------------------------------------------------------
+local_models:
+  ollama:
+    base_url: "http://localhost:11434"   # Override: OLLAMA_BASE_URL
+    default_model: "llama3.2"           # Override: OLLAMA_MODEL
+  lmstudio:
+    base_url: "http://localhost:1234"    # Override: LMSTUDIO_BASE_URL
+    default_model: "local-model"        # Override: LMSTUDIO_MODEL
+  openai_compatible:
+    base_url: ""                        # Set via: CUSTOM_API_BASE_URL
+    model: ""                           # Set via: CUSTOM_MODEL
+    api_key: ""                         # Set via: CUSTOM_API_KEY
+
+# ------------------------------------------------------------
+# Team B — Evolution Chronicle Settings
+# ------------------------------------------------------------
+team_b:
+  evolution_graph_path: "docs/evolution-chronicle/evolution-graph.json"
+  chronicle_dir: "docs/evolution-chronicle"
+  auto_detect_latest_report: true     # Automatically find newest Team A report
+
+# ------------------------------------------------------------
+# Team C — Pedagogy Federation Settings
+# ------------------------------------------------------------
+team_c:
+  lesson_output_dir: "pedagogy/weekly-lessons"
+  levels: [1, 2, 3]                   # Which levels to generate (subset allowed)
+  quiz_questions: 10                  # Total quiz questions (3/4/3 split by level)
 
 # ------------------------------------------------------------
 # Pipeline Behavior

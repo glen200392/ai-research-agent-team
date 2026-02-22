@@ -1,0 +1,54 @@
+version: "3.9"
+
+# ── AI Research Agent Team — Docker Compose ──────────────────────────────────
+#
+# Usage:
+#   Cloud providers:   docker compose up app
+#   With local Ollama: docker compose --profile local up
+#   Pull Ollama model: docker compose exec ollama ollama pull llama3.2
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  app:
+    build: .
+    env_file:
+      - .env
+    environment:
+      # When running with local Ollama, point to the sidecar container
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+    volumes:
+      - ./reports:/app/reports
+      - ./docs:/app/docs
+      - ./pedagogy:/app/pedagogy
+      - ./tmp:/app/tmp
+    depends_on:
+      ollama:
+        condition: service_healthy
+        required: false  # Only required when --profile local is used
+    command: ["team-a"]
+
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["local"]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    # Uncomment for GPU support:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+volumes:
+  ollama_data:

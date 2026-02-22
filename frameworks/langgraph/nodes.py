@@ -4,16 +4,13 @@ Each function is a node in the research pipeline graph.
 """
 import json
 import re
-import uuid
 from datetime import datetime, timedelta
 from calendar import monthrange
-from typing import Any
 
-from langchain_anthropic import ChatAnthropic
-from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from .state import ResearchState
+from core.providers import get_llm as _core_get_llm
 
 _FORCE_APPROVE_DISCLAIMER = (
     "\n\n---\n"
@@ -34,31 +31,13 @@ def _load_prompt(filename: str) -> str:
     return match.group(1).strip() if match else content
 
 
-def _get_llm(config: dict):
-    """Return configured LLM based on provider setting."""
-    import os
-    provider = config.get("llm", {}).get("provider", "anthropic")
-    temp = config.get("llm", {}).get("temperature", 0.3)
-    max_tokens = config.get("llm", {}).get("max_tokens", 8192)
+def _get_llm(config: dict, agent_name: str = None):
+    """Return configured LLM via the universal provider factory (core/providers.py).
 
-    if provider == "openai":
-        return ChatOpenAI(
-            model=os.getenv("OPENAI_MODEL", "gpt-4o"),
-            temperature=temp,
-            max_tokens=max_tokens,
-        )
-    elif provider == "google":
-        from langchain_google_genai import ChatGoogleGenerativeAI
-        return ChatGoogleGenerativeAI(
-            model=os.getenv("GOOGLE_MODEL", "gemini-2.0-flash"),
-            temperature=temp,
-        )
-    else:  # default: anthropic
-        return ChatAnthropic(
-            model=os.getenv("ANTHROPIC_MODEL", "claude-opus-4-5"),
-            temperature=temp,
-            max_tokens=max_tokens,
-        )
+    Supports: anthropic, openai, google, ollama, lmstudio, openai_compatible.
+    Provider resolved in order: per-agent override → global config → env var → auto-detect.
+    """
+    return _core_get_llm(config, agent_name=agent_name)
 
 
 def _extract_json(text: str):
@@ -174,7 +153,7 @@ def orchestrator_init(state: ResearchState) -> dict:
 
 def intel_collector(state: ResearchState) -> dict:
     """Run 6-stream parallel intelligence collection."""
-    llm = _get_llm(state["config"])
+    llm = _get_llm(state["config"], agent_name="intel_collector")
     system_prompt = _load_prompt("02_intel_collector.md")
 
     month_name = datetime.strptime(state["time_range_start"], "%Y-%m-%d").strftime("%B")
@@ -221,7 +200,7 @@ def intel_collector(state: ResearchState) -> dict:
 
 def tech_analyst(state: ResearchState) -> dict:
     """Analyze Streams A, B, C for technical insights."""
-    llm = _get_llm(state["config"])
+    llm = _get_llm(state["config"], agent_name="tech_analyst")
     system_prompt = _load_prompt("03_tech_analyst.md")
 
     intel = state.get("intel_collection", {})
@@ -259,7 +238,7 @@ def tech_analyst(state: ResearchState) -> dict:
 
 def market_analyst(state: ResearchState) -> dict:
     """Analyze Streams D, E, F for market and strategic insights."""
-    llm = _get_llm(state["config"])
+    llm = _get_llm(state["config"], agent_name="market_analyst")
     system_prompt = _load_prompt("04_market_analyst.md")
 
     intel = state.get("intel_collection", {})
@@ -297,7 +276,7 @@ def market_analyst(state: ResearchState) -> dict:
 
 def content_synthesizer(state: ResearchState) -> dict:
     """Generate long-form, LinkedIn, and email content in Traditional Chinese."""
-    llm = _get_llm(state["config"])
+    llm = _get_llm(state["config"], agent_name="content_synthesizer")
     system_prompt = _load_prompt("05_content_synthesizer.md")
 
     revision_feedback = ""
@@ -346,7 +325,7 @@ def quality_gate(state: ResearchState) -> dict:
     On FORCE_APPROVE, appends a disclaimer to the long_form content so that
     readers are aware the report bypassed the normal quality threshold.
     """
-    llm = _get_llm(state["config"])
+    llm = _get_llm(state["config"], agent_name="quality_gate")
     system_prompt = _load_prompt("06_quality_gate.md")
     min_score = state["config"].get("quality", {}).get("min_score", 85)
     max_revisions = state["config"].get("quality", {}).get("max_revisions", 2)
