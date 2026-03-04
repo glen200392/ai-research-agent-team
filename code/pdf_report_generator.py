@@ -181,6 +181,32 @@ def _build_styles():
         wordWrap="CJK",
     )
 
+    gp_header_style = ParagraphStyle(
+        "gp_header",
+        fontName=_FONT_BOLD,
+        fontSize=10,
+        textColor=colors.white,
+        backColor=colors.HexColor("#34495e"),
+        leading=16,
+        spaceBefore=10,
+        spaceAfter=4,
+        leftIndent=6,
+        rightIndent=6,
+        wordWrap="CJK",
+    )
+    gp_body_style = ParagraphStyle(
+        "gp_body",
+        fontName=_FONT_REG,
+        fontSize=8,
+        textColor=colors.HexColor("#2c3e50"),
+        backColor=colors.HexColor("#f4f6f7"),
+        leading=13,
+        spaceBefore=2,
+        spaceAfter=2,
+        leftIndent=8,
+        rightIndent=8,
+        wordWrap="CJK",
+    )
     return {
         "title": title_style,
         "subtitle": subtitle_style,
@@ -188,6 +214,8 @@ def _build_styles():
         "body": body_style,
         "small": small_style,
         "label": label_style,
+        "gp_header": gp_header_style,
+        "gp_body": gp_body_style,
     }
 
 
@@ -302,6 +330,120 @@ def _embed_chart(path: str, width_cm=14, height_cm=10):
     if path and os.path.exists(path):
         return Image(path, width=width_cm * cm, height=height_cm * cm)
     return None
+
+
+# ─────────────────────────────────────────
+#  Global Perspective (EN) 區塊渲染
+# ─────────────────────────────────────────
+
+def _make_global_perspective_block(gp_data: dict, ticker: str, s: dict) -> list:
+    """
+    為單一股票渲染 Global Perspective (EN) 灰底卡片。
+    gp_data: en_global_perspective dict，任何欄位可選。
+    回傳 Flowable list。
+    """
+    if not gp_data:
+        return []
+
+    flowables = []
+
+    # 欄位標籤 → 顯示名稱映射（涵蓋台股/美股/日股所有欄位）
+    field_labels = {
+        # 台股 Stage 1
+        "institutional_flows":       "Institutional Flows",
+        "analyst_calls":             "Analyst Calls",
+        "global_catalyst":           "Global Catalyst",
+        "supply_chain_en":           "Supply Chain (Global View)",
+        # 台股 Stage 2
+        "foreign_flow":              "Foreign Flow",
+        "global_peers_comparison":   "Global Peers Comparison",
+        "smart_money_signal":        "Smart Money Signal",
+        # 台股 Stage 3
+        "foreign_institutional_rating": "Foreign Institutional Rating",
+        "consensus_eps_usd":         "Consensus EPS (USD)",
+        "peer_valuation_gap":        "Peer Valuation Gap",
+        "key_risk_en":               "Key Risk (EN)",
+        # 台股 Stage 4
+        "foreign_ownership_pct":     "Foreign Ownership %",
+        "etf_inclusion":             "ETF Inclusion",
+        "global_demand_driver":      "Global Demand Driver",
+        "institutional_consensus":   "Institutional Consensus",
+        # 台股 Stage 5
+        "macro_risk_en":             "Macro Risk (EN)",
+        "geopolitical_risk_en":      "Geopolitical Risk",
+        "portfolio_var_usd":         "Portfolio VaR (USD)",
+        "hedge_suggestion_en":       "Hedge Suggestion",
+        # 美股 Stage 1
+        "global_macro_en":           "Global Macro",
+        "key_catalyst_en":           "Key Catalyst",
+        # 美股 Stage 2
+        "options_flow":              "Options Flow",
+        "short_interest":            "Short Interest",
+        "sector_rotation_en":        "Sector Rotation",
+        "technical_vs_peers":        "Technical vs Peers",
+        # 美股 Stage 3
+        "wall_street_consensus":     "Wall Street Consensus",
+        "consensus_pt_usd":          "Consensus Price Target",
+        "earnings_revision_trend":   "Earnings Revision Trend",
+        "competitive_moat_en":       "Competitive Moat",
+        # 美股 Stage 4
+        "index_weight":              "Index Weight",
+        "etf_flow":                  "ETF Flow",
+        "global_ai_positioning":     "Global AI Positioning",
+        "institutional_ownership_change": "Institutional Ownership Change",
+        # 美股 Stage 5
+        "macro_tail_risk_en":        "Macro Tail Risk",
+        "sector_correlation_en":     "Sector Correlation",
+        "usd_impact_en":             "USD Impact",
+        "hedge_tools_en":            "Hedge Tools",
+        # 日股 Stage 1
+        "foreign_net_buying":        "Foreign Net Buying (TSE)",
+        "global_supply_chain_en":    "Global Supply Chain Role",
+        "boj_impact_en":             "BOJ Policy Impact",
+        # 日股 Stage 2
+        "foreign_flow_en":           "Foreign Flow (TSE)",
+        "jpy_technical_impact":      "JPY Technical Impact",
+        "nikkei_relative_strength":  "Nikkei Relative Strength",
+        "options_market_en":         "Options Market Signal",
+        # 日股 Stage 3
+        "foreign_broker_rating":     "Foreign Broker Rating",
+        "consensus_eps_jpy":         "Consensus EPS (JPY)",
+        "jpy_earnings_sensitivity":  "JPY Earnings Sensitivity",
+        "global_peer_comparison_en": "Global Peer Comparison",
+        # 日股 Stage 4
+        "msci_japan_weight":         "MSCI Japan Weight",
+        "global_ai_theme_fit":       "Global AI Theme Fit",
+        "carry_trade_risk_en":       "Carry Trade Risk",
+        # 日股 Stage 5
+        "jpy_tail_risk_en":          "JPY Tail Risk",
+        "boj_policy_risk_en":        "BOJ Policy Risk",
+        "china_demand_risk_en":      "China Demand Risk",
+    }
+
+    # 標頭
+    header_text = f"Global Perspective (EN) — {ticker}" if ticker else "Global Perspective (EN)"
+    flowables.append(Paragraph(header_text, s["gp_header"]))
+
+    # 每個非空欄位渲染為一行
+    for key, label in field_labels.items():
+        val = gp_data.get(key)
+        if not val:
+            continue
+        # analyst_calls 是 list，特殊處理
+        if isinstance(val, list):
+            lines = "; ".join(
+                f"{item.get('firm','?')} {item.get('action','?')} {item.get('ticker', item.get('ticker',''))} "
+                f"PT={item.get('target_price', item.get('target_price_jpy','N/A'))}"
+                for item in val
+            )
+            val = lines if lines else "N/A"
+        flowables.append(Paragraph(
+            f"<b>{label}:</b> {_safe_str(val)}",
+            s["gp_body"]
+        ))
+
+    flowables.append(Spacer(1, 0.3 * cm))
+    return flowables
 
 
 # ─────────────────────────────────────────
@@ -452,6 +594,48 @@ def build_report(report_data: dict, output_path: str) -> str:
         story.append(chart)
     else:
         story.append(Paragraph("⚠ 情緒散點圖尚未生成或路徑不存在", s["body"]))
+    story.append(Spacer(1, 0.5 * cm))
+
+    # ── Chapter 7: Global Perspective (EN) ──
+    # 從各 Stage 的 stocks 陣列中收集 en_global_perspective，每股渲染一個灰底卡片
+    story.append(PageBreak())
+    story.append(Paragraph("Chapter 7：Global Perspective (EN)", s["heading"]))
+    story.append(Paragraph(
+        "The following insights are sourced directly from English-language institutional research, "
+        "foreign broker ratings, and global market data — supplementing the Chinese analysis above "
+        "with an international investor perspective.",
+        s["body"]
+    ))
+    story.append(Spacer(1, 0.4 * cm))
+
+    # 收集所有股票的 en_global_perspective（從 Stage 1~5 各層合併，ticker 為 key）
+    gp_by_ticker: dict = {}
+    for stage_key in ["market_research", "technical", "fundamental", "portfolio", "risk"]:
+        stage_data = report_data.get(stage_key, {})
+        stocks = stage_data.get("stocks", [])
+        if isinstance(stocks, list):
+            for stock in stocks:
+                ticker = _safe_str(stock.get("ticker", ""))
+                gp = stock.get("en_global_perspective", {})
+                if gp and isinstance(gp, dict):
+                    if ticker not in gp_by_ticker:
+                        gp_by_ticker[ticker] = {}
+                    gp_by_ticker[ticker].update(gp)
+
+    # 也嘗試從頂層 en_global_perspective 取市場級別資料
+    market_gp = report_data.get("en_global_perspective", {})
+    if market_gp:
+        story.extend(_make_global_perspective_block(market_gp, "Market Overview", s))
+
+    if gp_by_ticker:
+        for ticker, gp_data in gp_by_ticker.items():
+            story.extend(_make_global_perspective_block(gp_data, ticker, s))
+    else:
+        story.append(Paragraph(
+            "（Global Perspective data not available for this report — "
+            "ensure Stage 1-5 format_guide includes en_global_perspective fields.）",
+            s["body"]
+        ))
     story.append(Spacer(1, 0.5 * cm))
 
     # ── 關鍵發現 ──────────────────────────
