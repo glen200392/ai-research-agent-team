@@ -20,7 +20,10 @@ steps:
   agent_slug: market-research-analyst
   format_guide: '輸出：(1) 漲幅篩選結果表（ticker、公司名、20日漲幅%、篩選狀態: MOMENTUM/WATCHLIST），(2) 市場研究摘要（繁體中文），(3)
     本週 AI 主題催化劑清單，(4) 建議分析標的 JSON 清單：[{ticker, name, sector, 20d_return_pct, momentum_flag,
-    reason}]。'
+    reason, en_global_perspective: {institutional_flows: string（機構資金流向，如 GS adds to conviction list），
+    analyst_calls: [{firm, ticker, action, target_price}]（本週外資評等異動），
+    global_macro_en: string（Fed policy / macro backdrop in English），
+    key_catalyst_en: string（single biggest catalyst this week in English）}}]。'
 - description: 'Stage 1.5 — 情緒分析 (Sentiment Analysis): 對 Stage 1 篩選後的標的，從新聞標題、法人報告、社群媒體公司句集計情緒訊號。計算每檔
     Sentiment Score (0-10)、情緒動能與市場整體情緒讀數。'
   agent_id: agt_0699ef88cbe779d380004859b6076cb1
@@ -33,7 +36,11 @@ steps:
   agent_id: agt_0697b541706f7e628000b0a73cb957eb
   agent_slug: technical-analysis-expert
   format_guide: '輸出 JSON：{stocks: [{ticker, regime, technical_score, entry_zone, targets:[T1,T2,T3],
-    stop_loss, atr, rr_ratio, pattern, signal_type}]}。繁體中文技術分析摘要表格。'
+    stop_loss, atr, rr_ratio, pattern, signal_type,
+    en_global_perspective: {options_flow: string（unusual options activity or put/call ratio signal），
+    short_interest: string（short interest % float and recent change），
+    sector_rotation_en: string（sector rotation context: money flowing into/out of AI vs other sectors），
+    technical_vs_peers: string（stock technical strength vs SOX / QQQ / global AI peers）}}]}。繁體中文技術分析摘要表格。'
 - description: 'Stage 3 — 基本面摘要 (Fundamental Snapshot): 對篩選標的執行快速基本面分析：P/E、Forward
     P/E、EV/EBITDA、毛利率趨勢、ROE、科技幾何成長（AI 投資計畫能見度）、競爭護城河。輸出 Fundamental Score (0-10) 及投資建議。'
   agent_id: agt_0697b55daeb9751b800061ba767d1167
@@ -54,7 +61,12 @@ steps:
   format_guide: '輸出：(1) 每股四維度評分表，(2) Kelly 倉位表（p值、b值、Full Kelly f*、0.5x 建議倉位%），(3)
     動能篩選加分說明，(4) 三情境分析（Bull/Base/Bear），(5) JSON：{stocks: [{ticker, composite_score,
     macro_s, sentiment_s, technical_s, fundamental_s, momentum_bonus, kelly_half,
-    suggested_pct, entry, stop_loss, regime}], total_invested_pct, cash_pct}。繁體中文輸出。'
+    suggested_pct, entry, stop_loss, regime,
+    en_global_perspective: {index_weight: string（S&P 500 / NASDAQ 100 index weight and recent change），
+    etf_flow: string（ETF inflow/outflow: QQQ / SOXX / ARKK recent flow in USD billion），
+    global_ai_positioning: string（stock position in global AI theme: infrastructure/model/application layer），
+    institutional_ownership_change: string（13F filing trend: top institutions adding or reducing）}}],
+    total_invested_pct, cash_pct}。繁體中文輸出。'
 - description: 'Stage 5 — 風控評估 + CVaR 驗證 (US Risk Management): 對 Stage 4 倉位建議執行 CVaR（95%/99%）計算（歷史模擬
     + 參數法 + Monte Carlo）。壓力測試情境：(1) 美國送入衰退，(2) Fed 重新升息衝擊，(3) AI CapEx 大幅削減，(4) 地緣政治風險。依波動率體制調整倉位乘數，對每檔輸出
     APPROVED / REDUCED / REJECTED 裁決。'
@@ -62,7 +74,11 @@ steps:
   agent_slug: portfolio-risk-management-advisor
   format_guide: '輸出：(1) CVaR 摘要表，(2) 壓力測試結果，(3) 波動率體制旗標，(4) 最終核准倉位表，(5) 每股風控判決。同時輸出完整
     JSON：{cvar_95: float, cvar_99: float, stress_tests: [{scenario, portfolio_impact,
-    verdict}], decisions: [{ticker, verdict, final_pct, note}]}。繁體中文輸出。'
+    verdict}], decisions: [{ticker, verdict, final_pct, note}],
+    en_global_perspective: {macro_tail_risk_en: string（Fed policy reversal / recession probability and portfolio drawdown estimate），
+    sector_correlation_en: string（AI sector correlation with broader market under stress: beta and drawdown）,
+    usd_impact_en: string（USD strength/weakness impact on US tech earnings and portfolio valuation），
+    hedge_tools_en: string（suggested hedges: inverse ETFs / put spreads / sector rotation out of AI）}}。繁體中文輸出。'
 - description: 'Stage 5.5 — 圖表生成 (US Chart Generation): 接收 Stage 0.5~Stage 5 所有結構化
     JSON 輸出，使用 Python（plotly、matplotlib、mplfinance）生成六類投資視覺化圖表並儲存為 PNG，供 Stage 6a
     PDF 嵌入。圖表清單：(1) 四維度雷達圖（每檔股票 Composite Score 四維分解）；(2) Kelly 倉位圓餅圖（核准標的倉位分配）；(3)
