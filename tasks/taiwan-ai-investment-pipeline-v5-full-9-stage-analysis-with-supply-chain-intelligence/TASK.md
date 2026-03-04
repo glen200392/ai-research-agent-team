@@ -41,7 +41,11 @@ steps:
   format_guide: '輸出包含：(1) 總體市場觀察摘要（含 SC Regime 對篩選方向的影響說明），(2) 法說NLP分析：{nlp_score:
     float, signal_direction: BULLISH/NEUTRAL/BEARISH, key_signals: [{quote, signal_type,
     score, implication}], summary_zh: string, stocks_impacted: [ticker]}，(3) 建議分析標的清單（含台股代號、公司名稱、所屬次產業、推薦原因、供應鏈層級），(4)
-    本週重大催化劑事件清單，(5) 主要風險因子。格式為繁體中文 Markdown，同時輸出標的 JSON 清單給後續 Stage 使用。'
+    本週重大催化劑事件清單，(5) 主要風險因子。格式為繁體中文 Markdown，同時輸出標的 JSON 清單給後續 Stage 使用。每檔股票額外包含
+    en_global_perspective: {institutional_flows: string（外資法人買賣超方向與金額估計，英文），
+    analyst_calls: [{firm, ticker, action, target_price}]（外資券商評等異動，如 Morgan Stanley Overweight PT=1200），
+    global_catalyst: string（本週全球 AI 產業最大催化劑，英文，如 NVIDIA earnings / TSMC CoWoS booking），
+    supply_chain_en: string（該公司在全球 AI 供應鏈中的定位，英文，如 key CoWoS substrate supplier for NVDA）}'
 - description: 'Stage 1.5 — 情緒分析 (Sentiment Analysis): 接收 Stage 1 標的清單（含法說NLP分析結果），對每檔股票從三個來源（新聞/法人報告/社群論壇）收集情緒訊號，計算
     Sentiment Score (0-10) 和情緒動能。法說NLP Score 作為 Tier 0 額外加權（權重 15%）注入情緒計算。同時計算市場整體情緒讀數。'
   agent_id: agt_0699ef88cbe779d380004859b6076cb1
@@ -66,7 +70,11 @@ steps:
   agent_slug: fundamental-analysis-advisor
   format_guide: '輸出結構化 JSON：{stocks: [{ticker, fundamental_score, valuation: {pe,
     ev_ebitda, dcf_fair_value, margin_of_safety_pct}, moat_rating: wide|narrow|none,
-    customer_concentration_pct: float, key_strengths, key_risks, recommendation: BUY|HOLD|AVOID}]}。customer_concentration_pct
+    customer_concentration_pct: float, key_strengths, key_risks, recommendation: BUY|HOLD|AVOID,
+    en_global_perspective: {foreign_institutional_rating: string（外資機構最新評等與目標價，英文，如 Goldman Sachs BUY PT=1350 TWD），
+    consensus_eps_usd: string（彭博一致預期 EPS 換算美元，含預測區間），
+    peer_valuation_gap: string（與全球同業估值溢折價，如 TSMC trades at 20% premium to Samsung on P/E），
+    key_risk_en: string（最大基本面風險，英文，如 customer concentration risk: Apple 25% of revenue）}}]}。customer_concentration_pct
     為最大單一客戶佔營收比例，將用於 Stage 4 Supply Chain Score 計算。同時輸出繁體中文基本面摘要。'
 - description: 'Stage 4 — 五維度整合評分 + Kelly Criterion 倉位計算 (v5 五維度 Coordinator with
     Supply Chain Score): 整合所有上游輸出，執行 v5 五維度評分矩陣：(A) 為每檔股票計算 Supply Chain Score (0-10)，包含五個子指標；(B)
@@ -78,8 +86,12 @@ steps:
   format_guide: '輸出：(1) 每股五維度評分表，(2) Supply Chain Score 明細，(3) Kelly Criterion 倉位表，(4)
     三情境分析（Bull/Base/Bear），(5) 結構化 JSON：{stocks: [{ticker, composite_score, macro_score,
     sc_score, sc_label, sentiment_score, technical_score, fundamental_score, kelly_full,
-    kelly_half, suggested_pct, entry, exit, stop_loss, regime, sc_detail}], macro_score,
-    sc_temp_score}。繁體中文輸出。'
+    kelly_half, suggested_pct, entry, exit, stop_loss, regime, sc_detail,
+    en_global_perspective: {foreign_ownership_pct: string（外資持股比例及近4週趨勢，英文），
+    etf_inclusion: string（ETF 納入狀態，如 MSCI Taiwan 0.8% weight / KWEB excluded），
+    global_demand_driver: string（全球 AI 終端需求驅動力，英文，如 NVDA CoWoS demand pulling through H2 2026），
+    institutional_consensus: string（法人評等分佈比例，如 Buy 65% / Hold 28% / Sell 7%）}}],
+    macro_score, sc_temp_score}。繁體中文輸出。'
 - description: 'Stage 5 — 風控評估 + CVaR 驗證 (Risk Management with CVaR): 接收 Stage 4 的
     Kelly 倉位建議（含 SC Score 調整後），對每檔執行 CVaR（95% 和 99%）計算（使用歷史模擬、參數法和 Monte Carlo 三種方法），執行壓力測試（台海風險、Fed
     升息衝擊、AI 資本支出反轉、供應鏈斷鏈情境），依波動率體制調整倉位乘數。SC Regime 為 SUPPLY_CONTRACTION 時，CVaR 門檻自動收緊
