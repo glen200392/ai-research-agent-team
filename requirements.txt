@@ -1,47 +1,51 @@
-# AI Research Agent Team — Python Dependencies
-# Install with: pip install -r requirements.txt
-# Python 3.10+ required
+# ═══════════════════════════════════════════════════════
+#  AI Investment Pipeline — Python Dependencies
+#  Supports: Taiwan / US / Japan Daily Report Systems
+#  Last updated: 2026-03-04  v2.1
+# ═══════════════════════════════════════════════════════
 
-# ── Core LLM Frameworks ──────────────────────────────────────
-langchain>=0.3.0
-langchain-core>=0.3.0
-langchain-openai>=0.2.0
-langchain-anthropic>=0.2.0
-langchain-google-genai>=2.0.0
-langgraph>=0.2.0
+# ── PDF Generation ──────────────────────────────────────
+reportlab>=4.0.0
 
-# ── Multi-Agent Frameworks (install the one you use) ─────────
-crewai>=0.80.0
-pyautogen>=0.4.0
+# ── Data & Analysis ─────────────────────────────────────
+pandas>=2.0.0
+numpy>=1.26.0
+yfinance>=0.2.36
+fredapi>=0.5.1
 
-# ── Search Tools ─────────────────────────────────────────────
-tavily-python>=0.5.0
-google-search-results>=2.4.2          # Serper / SerpAPI
+# ── Chart Generation ────────────────────────────────────
+matplotlib>=3.8.0
+seaborn>=0.13.0
+mplfinance>=0.12.10b0
+plotly>=5.18.0
+kaleido>=0.2.1
 
-# ── Web Scraping ─────────────────────────────────────────────
-firecrawl-py>=1.0.0
+# ── Web / HTTP ───────────────────────────────────────────
+requests>=2.31.0
+httpx>=0.25.0
 beautifulsoup4>=4.12.0
-httpx>=0.27.0
-playwright>=1.45.0                    # For JS-heavy pages
+lxml>=4.9.0
 
-# ── Data Processing ──────────────────────────────────────────
-pydantic>=2.7.0
+# ── Templating ──────────────────────────────────────────
+jinja2>=3.1.0
+
+# ── Utilities ───────────────────────────────────────────
 python-dotenv>=1.0.0
-PyYAML>=6.0.1
-jinja2>=3.1.4
+pydantic>=2.5.0
+tenacity>=8.2.0
 
-# ── Email Delivery ───────────────────────────────────────────
-aiosmtplib>=3.0.0                     # Async SMTP
+# ── AI / LLM Frameworks ─────────────────────────────────
+openai>=1.10.0
+anthropic>=0.20.0
+langchain>=0.1.0
+langchain-openai>=0.0.5
+langgraph>=0.0.30
 
-# ── Optional Integrations ────────────────────────────────────
-slack-sdk>=3.29.0                     # Slack delivery
-notion-client>=2.2.2                  # Notion delivery
+# ── Optional: Streamlit Dashboard ───────────────────────
+# streamlit>=1.30.0
 
-# ── Observability ────────────────────────────────────────────
-langsmith>=0.1.0                      # LangGraph tracing
+# ── Optional: Workflow Orchestration ────────────────────
+# prefect>=2.14.0
 
-# ── Development & Testing ────────────────────────────────────
-pytest>=8.2.0
-pytest-asyncio>=0.23.0
-python-dotenv>=1.0.0
-rich>=13.7.0                          # Pretty CLI output
+# ── Optional: Observability ─────────────────────────────
+# langfuse>=2.0.0
